@@ -1,0 +1,32 @@
+---
+title: "Australia CO2 emission"
+author: "Aphiaut Imuan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+```{r}
+co2 <- read_csv("data/co-emissions-per-capita.csv") %>%
+  filter(Entity == "Australia",
+         Year >= 1996)
+```
+
+# Data Description
+
+CO2 emission from [Our World in Data](https://ourworldindata.org/co2/country/australia) This data focus on 25 year 1996-2021
+
+
+
+
+# Theory for this report
+IPAT theory or The Environmental Impacts (I) on Population (P), Affluence (A), and Technology (T)
+
