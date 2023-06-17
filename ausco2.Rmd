@@ -12,21 +12,81 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(ggplot2)
+library(readxl)
+library(GGally)
 ```
 
 ```{r}
 co2 <- read_csv("data/co-emissions-per-capita.csv") %>%
   filter(Entity == "Australia",
-         Year >= 1996)
+         Year >= 1996) %>%
+  rename("year" = "Year",
+         "co2_capita" = "Annual CO₂ emissions (per capita)") %>%
+  select(year, co2_capita)
+
+
+pop <- read_csv("data/API_SP.POP.TOTL_DS2_en_csv_v2_5551506.csv", skip = 4) %>%
+  pivot_longer(cols = 5:67, names_to = "year", values_to = "total_pop") %>%
+  rename("country" = "Country Name") %>%
+  filter(country == "Australia",
+         year >= 1996) %>%
+  select(c(year, total_pop)) %>%
+  na.omit() %>%
+  mutate(year = as.numeric(year))
+
+
+migrant <- read_csv("data/API_SM.POP.NETM_DS2_en_csv_v2_5551569.csv", skip = 4) %>%
+  pivot_longer(cols = 5:67, names_to = "year", values_to = "net_migrant") %>%
+  rename("country" = "Country Name") %>%
+  filter(country == "Australia",
+         year >= 1996,
+         year < 2022) %>%
+  select(c(year, net_migrant)) %>%
+  na.omit() %>%
+  mutate(year = as.numeric(year))
+
+
+gdp <- read_csv("data/API_NY.GDP.PCAP.KD_DS2_en_csv_v2_5551580.csv", skip = 4) %>%
+  pivot_longer(cols = 5:67, names_to = "year", values_to = "gdp_capita") %>%
+  rename("country" = "Country Name") %>%
+  filter(country == "Australia",
+         year >= 1996) %>%
+  select(c(year, gdp_capita)) %>%
+  na.omit() %>%
+  mutate(year = as.numeric(year))
+
+
+myCols <- as.character(read_excel("data/Australian Energy Statistics 2021 Table B_0.xlsx", sheet = "AUS", skip = 4, n_max = 1, col_names = FALSE))
+myCols <- c("year", myCols)
+
+energy <- read_excel("data/Australian Energy Statistics 2021 Table B_0.xlsx", sheet = "AUS", skip = 6, col_names = myCols) %>% 
+  na.omit() %>%
+  filter(as.numeric(sub("-.*", "", year)) %in% 1996:2021) %>%
+  mutate(year = as.numeric(sub("-.*", "", year))) %>%
+  select(c("year", "Energy consumption")) %>%
+  rename("energy_consumption" = "Energy consumption")
+
+co2_new<- co2 %>%
+  right_join(pop, by = "year") %>%
+  right_join(migrant, by = "year") %>%
+  right_join(gdp, by = "year") %>%
+  right_join(energy, by = "year")
+
 ```
 
 # Data Description
 
 CO2 emission from [Our World in Data](https://ourworldindata.org/co2/country/australia) This data focus on 25 year 1996-2021
-
-
-
+Energy data from  [Department of Climate Change, Energy, the Environment and Water](https://www.energy.gov.au/publications/australian-energy-update-2021)
+Population data from  [World Bank database](https://data.worldbank.org/indicator/SP.POP.TOTL?locations=AU)
+Net migration data from  [World Bank database](https://data.worldbank.org/indicator/SM.POP.NETM?locations=AU)
+GDP per capita constant 2015$ US [World Bank database](https://data.worldbank.org/indicator/NY.GDP.MKTP.KD?locations=AU)
 
 # Theory for this report
 IPAT theory or The Environmental Impacts (I) on Population (P), Affluence (A), and Technology (T)
+
+
+```{r}
+ggpairs(co2_new)
+```
 
