@@ -14,6 +14,9 @@ library(tidyverse)
 library(ggplot2)
 library(readxl)
 library(GGally)
+library(mgcv)
+library(broom)
+library(visreg)
 ```
 
 ```{r}
@@ -84,9 +87,107 @@ GDP per capita constant 2015$ US [World Bank database](https://data.worldbank.or
 
 # Theory for this report
 IPAT theory or The Environmental Impacts (I) on Population (P), Affluence (A), and Technology (T)
+EKC theory or the environmental Kuznets curve created by Simon Smith Kuznets
 
 
 ```{r}
 ggpairs(co2_new)
 ```
 
+From the figure illustrates correlations between CO2 and predictors are not linear relationship, therefore all predictors need to transform. In this transformation based on the Stochastic Regression on Population, Affluence and Technology (STIRPAT) framework because the IPAT model is theory that not useful for statistic. However, this framework has a drawback that the correlation between response variable and predictors are linear relationship. 
+
+```{r}
+co2_trans <- co2_new %>%
+  mutate(total_pop = log(total_pop),
+         net_migrant = log(net_migrant),
+         gdp_capita = log(gdp_capita),
+         energy_consumption = log(energy_consumption),
+         co2_capita = log(co2_capita))
+```
+
+```{r}
+co2_trans %>%
+  dplyr::select(-year) %>%
+  GGally::ggpairs(aes(alpha=.1))
+```
+
+This graph shows the relationship between CO2 per capita and all predictors are not linear relationship. Therefore, STIRPAT framework is not suitable to this report. 
+
+
+Therefore, the statistic model is relevant with this dataset should be non-parametric regression.
+
+```{r}
+lmod_1 <- lm(co2_capita ~ total_pop + net_migrant + gdp_capita + energy_consumption + total_pop:net_migrant + total_pop:gdp_capita + total_pop:energy_consumption, data = co2_trans)
+
+summary(lmod_1)
+```
+```{r}
+broom::augment(lmod_1) %>%
+  ggplot() +
+  geom_qq(aes(sample=.resid))
+```
+
+
+All p-value of predictors are not significant. It means they do not have enough evidence to conclude that predictors affect to CO2 emission per capita in Australia.
+
+```{r}
+co2_trans %>%
+  ggplot(aes(x = total_pop, y = co2_capita)) +
+  geom_smooth() + 
+  geom_point()
+```
+
+
+```{r}
+co2_trans %>%
+  ggplot(aes(x = gdp_capita, y = co2_capita)) +
+  geom_smooth()
+```
+
+```{r}
+co2_trans %>%
+  ggplot(aes(x = energy_consumption, y = co2_capita)) +
+  geom_smooth()
+```
+
+```{r}
+fit <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3), data = co2_trans)
+```
+
+```{r}
+visreg(fit, plot=FALSE) %>%
+purrr::map(function(x){plot(x, gg=TRUE)+theme_bw()}) %>%
+gridExtra::marrangeGrob(ncol=2, nrow=2)
+```
+```{r}
+summary(fit)
+```
+
+```{r}
+fit_2 <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3) + 
+                     s(net_migrant, bs = 'cr', k = 3) + s(gdp_capita, bs = 'cr', k = 3) + s(energy_consumption,  bs = 'cr', k = 3), data = co2_trans)
+
+```
+
+```{r}
+summary(fit_2)
+```
+
+
+```{r}
+visreg(fit_2, plot=FALSE) %>%
+purrr::map(function(x){plot(x, gg=TRUE)+theme_bw()}) %>%
+gridExtra::marrangeGrob(ncol=2, nrow=2)
+```
+
+```{r}
+anova(fit, fit_2, test = "F")
+```
+
+
+
+
+Technology is positive -> doesn't enough hechnology level and Furthermore, some studies such as Talbi (2017) and Le et
+al (2020) sounded energy consumption illustrate technology, moreover energy consumption
+measured by energy intensity, investigated energy intensity positive effects with CO2 emission
+in short run. (In this case, the meaning of short run is Macroeconomics meaning)
