@@ -17,6 +17,7 @@ library(GGally)
 library(mgcv)
 library(broom)
 library(visreg)
+library(patchwork)
 ```
 
 ```{r}
@@ -79,7 +80,7 @@ co2_new<- co2 %>%
 
 # Data Description
 
-CO2 emission from [Our World in Data](https://ourworldindata.org/co2/country/australia) This data focus on 25 year 1996-2021
+CO2 emission from [Our World in Data](https://ourworldindata.org/co2/country/australia) This data focus on 25 years 1996-2021
 Energy data from  [Department of Climate Change, Energy, the Environment and Water](https://www.energy.gov.au/publications/australian-energy-update-2021)
 Population data from  [World Bank database](https://data.worldbank.org/indicator/SP.POP.TOTL?locations=AU)
 Net migration data from  [World Bank database](https://data.worldbank.org/indicator/SM.POP.NETM?locations=AU)
@@ -111,10 +112,6 @@ co2_trans %>%
   GGally::ggpairs(aes(alpha=.1))
 ```
 
-This graph shows the relationship between CO2 per capita and all predictors are not linear relationship. Therefore, STIRPAT framework is not suitable to this report. 
-
-
-Therefore, the statistic model is relevant with this dataset should be non-parametric regression.
 
 ```{r}
 lmod_1 <- lm(co2_capita ~ total_pop + net_migrant + gdp_capita + energy_consumption + total_pop:net_migrant + total_pop:gdp_capita + total_pop:energy_consumption, data = co2_trans)
@@ -128,46 +125,75 @@ broom::augment(lmod_1) %>%
 ```
 
 
-All p-value of predictors are not significant. It means they do not have enough evidence to conclude that predictors affect to CO2 emission per capita in Australia.
+All p-value of predictors are not significant. It means they do not have enough evidence to conclude that predictors affect to CO2 emission per capita in Australia. Moreover, this QQ-plot shows outliers from both tails, and a close alignment of points is not linear line.
 
 ```{r}
-co2_trans %>%
+co2_pop <- co2_trans %>%
   ggplot(aes(x = total_pop, y = co2_capita)) +
   geom_smooth() + 
-  geom_point()
+  geom_point() +
+  labs(y = "CO2 per capita", x = "Total population", title = "Relationship between CO2 per capita and Total population") +
+  theme(plot.title = element_text(size = 7.5))
+```
+
+```{r}
+co2_migrant <- co2_trans %>%
+  ggplot(aes(x = net_migrant, y = co2_capita)) +
+  geom_smooth() + 
+  geom_point() +
+  labs(y = "CO2 per capita", x = "Net migrants", title = "Relationship between CO2 per capita and Net migrants") +
+  theme(plot.title = element_text(size = 7.5))
 ```
 
 
 ```{r}
-co2_trans %>%
+co2_gdp <- co2_trans %>%
   ggplot(aes(x = gdp_capita, y = co2_capita)) +
-  geom_smooth()
+  geom_smooth() + 
+  geom_point() +
+  labs(y = "CO2 per capita", x = "GDP per capita", title = "Relationship between CO2 per capita and GDP per capita") +
+  theme(plot.title = element_text(size = 7.5))
 ```
 
 ```{r}
-co2_trans %>%
+co2_ene <- co2_trans %>%
   ggplot(aes(x = energy_consumption, y = co2_capita)) +
-  geom_smooth()
+  geom_smooth() + 
+  geom_point() +
+  labs(y = "CO2 per capita", x = "Energy Consumption", title = "Relationship between CO2 per capita and Energy consumption") +
+  theme(plot.title = element_text(size = 7.5))
 ```
 
 ```{r}
-fit <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3), data = co2_trans)
+(co2_pop + co2_migrant)/(co2_gdp + co2_ene)
 ```
 
-```{r}
-visreg(fit, plot=FALSE) %>%
-purrr::map(function(x){plot(x, gg=TRUE)+theme_bw()}) %>%
-gridExtra::marrangeGrob(ncol=2, nrow=2)
-```
-```{r}
-summary(fit)
-```
+
+
+These graphs display the relationship between CO2 per capita and all predictors, revealing that none of the relationships exhibit a linear pattern. As a result, linear regression is not appropriate for this dataset. Consequently, the STIRPAT framework is not suitable for this report since it is based on linear relationship between environment degradation and all predictors. Instead using non-parametric regression would be more relevant for analysing the relationship within this dataset because this regression can capture the non-linear associations between CO2 per capita and the predictors more effectively.
+
 
 ```{r}
+# non-parametric regression without the interactions
+fit_1 <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3), data = co2_trans)
+```
+
+
+
+```{r}
+# non-parametric regression with the interactions
 fit_2 <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3) + 
                      s(net_migrant, bs = 'cr', k = 3) + s(gdp_capita, bs = 'cr', k = 3) + s(energy_consumption,  bs = 'cr', k = 3), data = co2_trans)
 
 ```
+
+
+
+```{r}
+# comparing models and find the best model to explain CO2 emission in Australia
+anova(fit_1, fit_2, test = "F")
+```
+As the result, it is significant which means this result rejects the null hypothesis that the non-parametric regression without the interactions is the best model to explain CO2 emission in Australia. Consequently, this result accept the alternative hypothesis that the non-parametric regression with the interactions is the best model to explain CO2 emission in Australia.
 
 ```{r}
 summary(fit_2)
@@ -175,13 +201,87 @@ summary(fit_2)
 
 
 ```{r}
-visreg(fit_2, plot=FALSE) %>%
-purrr::map(function(x){plot(x, gg=TRUE)+theme_bw()}) %>%
-gridExtra::marrangeGrob(ncol=2, nrow=2)
+nl_pop <- visreg(fit_2, "total_pop", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "Total Population",
+       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and Total population") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+
+nl_migrant <- visreg(fit_2, "net_migrant", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "Net Migrants",
+       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and Net Migrants") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+
+nl_gdp <- visreg(fit_2, "gdp_capita", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "GDP per capita",
+       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and GDP per capita") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+
+nl_ene <- visreg(fit_2, "energy_consumption", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "Energy Consumption",
+       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and Energy Consumption") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+```
+
+
+```{r}
+(nl_pop + nl_migrant)/(nl_gdp + nl_ene)
 ```
 
 ```{r}
-anova(fit, fit_2, test = "F")
+fit_3 <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, bs = 'cr', k = 3) + s(energy_consumption,  bs = 'cr', k = 3) + net_migrant:total_pop, data = co2_trans)
+```
+
+```{r}
+# comparing models and find the best model to explain CO2 emission in Australia
+anova(fit_2, fit_3, test = "F")
+```
+
+```{r}
+summary(fit_3)
+```
+
+```{r}
+nl_pop <- visreg(fit_3, "total_pop", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "Total Population",
+       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and Total population") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+
+
+nl_gdp <- visreg(fit_3, "gdp_capita", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "GDP per capita",
+#       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and GDP per capita") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+
+nl_ene <- visreg(fit_3, "energy_consumption", gg = TRUE) +
+  theme_bw() +
+  labs(y = "CO2 per capita", x = "Energy Consumption",
+#       title = "The relationship in non-parametric regression",
+       subtitle = "CO2 per capita and Energy Consumption") +
+  theme(plot.title = element_text(size = 10),
+        plot.subtitle = element_text(size = 7.5))
+```
+
+
+```{r}
+nl_pop + nl_gdp / nl_ene
 ```
 
 
