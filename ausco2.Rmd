@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, warning=FALSE, echo=FALSE, include=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(readxl)
@@ -20,7 +20,7 @@ library(visreg)
 library(patchwork)
 ```
 
-```{r}
+```{r, warning=FALSE, echo=FALSE, include=FALSE}
 co2 <- read_csv("data/co-emissions-per-capita.csv") %>%
   filter(Entity == "Australia",
          Year >= 1996) %>%
@@ -81,9 +81,13 @@ co2_new<- co2 %>%
 # Data Description
 
 CO2 emission from [Our World in Data](https://ourworldindata.org/co2/country/australia) This data focus on 25 years 1996-2021
+
 Energy data from  [Department of Climate Change, Energy, the Environment and Water](https://www.energy.gov.au/publications/australian-energy-update-2021)
+
 Population data from  [World Bank database](https://data.worldbank.org/indicator/SP.POP.TOTL?locations=AU)
+
 Net migration data from  [World Bank database](https://data.worldbank.org/indicator/SM.POP.NETM?locations=AU)
+
 GDP per capita constant 2015$ US [World Bank database](https://data.worldbank.org/indicator/NY.GDP.MKTP.KD?locations=AU)
 
 # Theory for this report
@@ -91,13 +95,13 @@ IPAT theory or The Environmental Impacts (I) on Population (P), Affluence (A), a
 EKC theory or the environmental Kuznets curve created by Simon Smith Kuznets
 
 
-```{r}
+```{r, warning=FALSE, echo=FALSE}
 ggpairs(co2_new)
 ```
 
 From the figure illustrates correlations between CO2 and predictors are not linear relationship, therefore all predictors need to transform. In this transformation based on the Stochastic Regression on Population, Affluence and Technology (STIRPAT) framework because the IPAT model is theory that not useful for statistic. However, this framework has a drawback that the correlation between response variable and predictors are linear relationship. 
 
-```{r}
+```{r, echo=FALSE}
 co2_trans <- co2_new %>%
   mutate(total_pop = log(total_pop),
          net_migrant = log(net_migrant),
@@ -106,19 +110,19 @@ co2_trans <- co2_new %>%
          co2_capita = log(co2_capita))
 ```
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 co2_trans %>%
   dplyr::select(-year) %>%
   GGally::ggpairs(aes(alpha=.1))
 ```
 
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 lmod_1 <- lm(co2_capita ~ total_pop + net_migrant + gdp_capita + energy_consumption + total_pop:net_migrant + total_pop:gdp_capita + total_pop:energy_consumption, data = co2_trans)
 
 summary(lmod_1)
 ```
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 broom::augment(lmod_1) %>%
   ggplot() +
   geom_qq(aes(sample=.resid))
@@ -127,35 +131,28 @@ broom::augment(lmod_1) %>%
 
 All p-value of predictors are not significant. It means they do not have enough evidence to conclude that predictors affect to CO2 emission per capita in Australia. Moreover, this QQ-plot shows outliers from both tails, and a close alignment of points is not linear line.
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 co2_pop <- co2_trans %>%
   ggplot(aes(x = total_pop, y = co2_capita)) +
   geom_smooth() + 
   geom_point() +
   labs(y = "CO2 per capita", x = "Total population", title = "Relationship between CO2 per capita and Total population") +
   theme(plot.title = element_text(size = 7.5))
-```
 
-```{r}
 co2_migrant <- co2_trans %>%
   ggplot(aes(x = net_migrant, y = co2_capita)) +
   geom_smooth() + 
   geom_point() +
   labs(y = "CO2 per capita", x = "Net migrants", title = "Relationship between CO2 per capita and Net migrants") +
   theme(plot.title = element_text(size = 7.5))
-```
 
-
-```{r}
 co2_gdp <- co2_trans %>%
   ggplot(aes(x = gdp_capita, y = co2_capita)) +
   geom_smooth() + 
   geom_point() +
   labs(y = "CO2 per capita", x = "GDP per capita", title = "Relationship between CO2 per capita and GDP per capita") +
   theme(plot.title = element_text(size = 7.5))
-```
 
-```{r}
 co2_ene <- co2_trans %>%
   ggplot(aes(x = energy_consumption, y = co2_capita)) +
   geom_smooth() + 
@@ -164,7 +161,9 @@ co2_ene <- co2_trans %>%
   theme(plot.title = element_text(size = 7.5))
 ```
 
-```{r}
+
+
+```{r, echo=FALSE, warning=FALSE}
 (co2_pop + co2_migrant)/(co2_gdp + co2_ene)
 ```
 
@@ -184,7 +183,6 @@ fit_1 <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, 
 # non-parametric regression with the interactions
 fit_2 <- mgcv::gam(co2_capita ~ s(total_pop, bs = 'cr', k = 3) + s(net_migrant, by = total_pop, bs = 'cr', k = 3) + s(gdp_capita, by = total_pop, bs = 'cr', k = 3) + s(energy_consumption, by = total_pop, bs = 'cr', k = 3) + 
                      s(net_migrant, bs = 'cr', k = 3) + s(gdp_capita, bs = 'cr', k = 3) + s(energy_consumption,  bs = 'cr', k = 3), data = co2_trans)
-
 ```
 
 
@@ -200,7 +198,7 @@ summary(fit_2)
 ```
 
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 nl_pop <- visreg(fit_2, "total_pop", gg = TRUE) +
   theme_bw() +
   labs(y = "CO2 per capita", x = "Total Population",
@@ -252,7 +250,7 @@ anova(fit_2, fit_3, test = "F")
 summary(fit_3)
 ```
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 nl_pop <- visreg(fit_3, "total_pop", gg = TRUE) +
   theme_bw() +
   labs(y = "CO2 per capita", x = "Total Population",
@@ -280,7 +278,7 @@ nl_ene <- visreg(fit_3, "energy_consumption", gg = TRUE) +
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 nl_pop + nl_gdp / nl_ene
 ```
 
